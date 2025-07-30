@@ -1,96 +1,93 @@
-// src/App.jsx
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import InteractionTracker from "./components/InteractionTracker";
-import HeatmapDashboard from "./components/HeatmapDashboard";
-import { MousePointerClick, Move, Sparkles, ArrowRightCircle, BarChart3, Home } from "lucide-react";
+import LiveHeatmapOverlay from "./components/LiveHeatmapOverlay";
+import HeatmapDashboardHeader from "./components/HeatmapDashboardHeader";
+import AIInsightsText from "./components/AIInsightsText";
 
 function App() {
-  const [currentView, setCurrentView] = useState('home');
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [heatPoints, setHeatPoints] = useState([]);
 
-  // Home page view with explanations and navigation
-  function HomeView() {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white flex flex-col items-center justify-center px-6 py-12">
-        <InteractionTracker />
-        <div className="text-center mb-12">
-          <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 bg-clip-text text-transparent animate-pulse tracking-tight">
-            🔥 Heatmap Analytics Tool
-          </h1>
-          <p className="mt-4 text-lg text-gray-300 max-w-2xl mx-auto">
-            Track user behavior with precision. Discover what your users interact with the most using advanced heatmap visualization.
-          </p>
-        </div>
+  useEffect(() => {
+    const currPage = window.location.pathname;
 
-        {/* Feature highlights */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full px-4 md:px-0 mb-16">
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 p-6 rounded-2xl shadow-md transition-transform hover:scale-105">
-            <MousePointerClick className="text-green-400 w-10 h-10 mb-3 animate-bounce" />
-            <h3 className="text-xl font-bold text-white mb-2">Click Tracking</h3>
-            <p className="text-gray-300 text-sm">
-              Monitors every user click on your site with timestamp and location data for comprehensive analysis.
-            </p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 p-6 rounded-2xl shadow-md transition-transform hover:scale-105">
-            <Move className="text-yellow-400 w-10 h-10 mb-3 animate-pulse" />
-            <h3 className="text-xl font-bold text-white mb-2">Mouse Movement</h3>
-            <p className="text-gray-300 text-sm">
-              Records user mouse flow to detect high attention areas, reading patterns, and navigation behavior.
-            </p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 p-6 rounded-2xl shadow-md transition-transform hover:scale-105">
-            <Sparkles className="text-purple-400 w-10 h-10 mb-3 animate-spin-slow" />
-            <h3 className="text-xl font-bold text-white mb-2">AI Insights</h3>
-            <p className="text-gray-300 text-sm">
-              Analyze interaction data using smart clustering, density mapping, and engagement scoring algorithms.
-            </p>
-          </div>
-        </div>
+    async function fetchStoredInteractions() {
+      try {
+        const [clickRes, moveRes] = await Promise.all([
+          fetch(
+            `http://localhost:5000/api/get-interactions?type=click&limit=10000&page=${encodeURIComponent(
+              currPage
+            )}`
+          ),
+          fetch(
+            `http://localhost:5000/api/get-interactions?type=mousemove&limit=10000&page=${encodeURIComponent(
+              currPage
+            )}`
+          ),
+        ]);
+        const clickJson = await clickRes.json();
+        const moveJson = await moveRes.json();
 
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-yellow-500 hover:to-pink-500 text-black font-bold py-3 px-6 rounded-full text-lg shadow-lg hover:scale-105 transition-transform"
-          >
-            <BarChart3 className="w-5 h-5" />
-            View Heatmap Dashboard
-          </button>
+        const clicks =
+          clickJson.status === "success" && Array.isArray(clickJson.data)
+            ? clickJson.data.map((d) => ({ x: d.x, y: d.y, value: 1 }))
+            : [];
 
-          <button
-            className="flex items-center gap-2 bg-white/10 backdrop-blur-lg border border-white/20 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg hover:scale-105 transition-transform"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          >
-            <ArrowRightCircle className="w-5 h-5" />
-            Start Tracking
-          </button>
-        </div>
+        const moves =
+          moveJson.status === "success" && Array.isArray(moveJson.data)
+            ? moveJson.data.map((d) => ({ x: d.x, y: d.y, value: 0.3 }))
+            : [];
 
-        <p className="mt-10 text-xs text-gray-500 text-center">
-          Built using React, Flask, MongoDB, and D3.js | Real-time Analytics Project
-        </p>
-      </div>
-    );
-  }
+        setHeatPoints([...clicks, ...moves]);
+      } catch (err) {
+        console.error("Error fetching interactions:", err);
+      }
+    }
+
+    fetchStoredInteractions();
+  }, []);
+
+  const handleInteraction = (point) => {
+    setHeatPoints((points) => [...points, point]);
+  };
+
+  const totalClicks = heatPoints.filter((p) => p.value === 1).length;
+  const mouseMoves = heatPoints.filter((p) => p.value < 1).length;
+  const totalInteractions = heatPoints.length;
 
   return (
-    <div className="min-h-screen">
-      {currentView === 'home' && <HomeView />}
-      {currentView === 'dashboard' && (
-        <div>
-          {/* Navigation Header for Dashboard */}
-          <div className="bg-gray-900 text-white p-4">
-            <button
-              onClick={() => setCurrentView('home')}
-              className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-            >
-              <Home size={20} />
-              ← Back to Home
-            </button>
-          </div>
-          <HeatmapDashboard />
-        </div>
-      )}
+    <div className="w-screen min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white flex flex-col items-center justify-center px-6 py-12">
+      <HeatmapDashboardHeader
+        analytics={{
+          totalClicks,
+          mouseMoves,
+          totalInteractions,
+        }}
+        lastUpdated={Date.now()}
+      />
+
+      <InteractionTracker onInteraction={handleInteraction} />
+
+      <button
+        onClick={() => setShowOverlay((v) => !v)}
+        className="mt-8 mb-4 px-4 py-2 bg-gradient-to-r from-pink-500 to-yellow-400 text-black rounded-lg font-bold shadow-lg"
+        style={{ zIndex: 11000 }}
+      >
+        {showOverlay ? "Hide Heatmap Overlay" : "Show Heatmap Overlay"}
+      </button>
+
+      {showOverlay && <LiveHeatmapOverlay points={heatPoints} />}
+
+      <div className="text-center mb-12 max-w-3xl">
+        <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 bg-clip-text text-transparent animate-pulse tracking-tight">
+          🔥 Heatmap Analytics Tool
+        </h1>
+        <p className="mt-4 text-lg text-gray-300">
+          Track user clicks <b>and mouse movements</b> live — this heatmap overlays your real website.
+        </p>
+      </div>
+
+      <AIInsightsText />
     </div>
   );
 }
