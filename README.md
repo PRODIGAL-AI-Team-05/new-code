@@ -30,7 +30,7 @@ A full-stack web analytics tool that tracks user clicks and mouse movements in r
 
 ### 1. Clone the Repository
 
-git clone https://github.com/your-username/heatmap-ai-analytics.git
+git clone https://github.com/PRODIGAL-AI-Team-05/new-code.git
 cd heatmap-ai-analytics
 
 
